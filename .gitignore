@@ -865,3 +865,7 @@ static
 media
 media/
 media/*
+
+personal_README.md
+/k8s/secret.yaml
+/k8s/secrets-b64.env

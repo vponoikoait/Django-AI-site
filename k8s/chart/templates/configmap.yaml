@@ -1,0 +1,11 @@
+# templates/configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "chart.fullname" . }}-env
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+data:
+  STATIC_URL: "{{ .Values.static.cdnUrl }}"
+  APP_DEBUG: "{{ .Values.app.debug }}"
