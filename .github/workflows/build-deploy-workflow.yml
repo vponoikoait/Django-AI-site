@@ -20,6 +20,10 @@ jobs:
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip awscliv2.zip 
           sudo ./aws/install --update
+      - name: Install | Notation for image signature
+        run: | 
+          wget -q https://d2hvyiie56hcat.cloudfront.net/linux/amd64/installer/deb/latest/aws-signer-notation-cli_amd64.deb
+          sudo dpkg -i aws-signer-notation-cli_amd64.deb
       - name: Install | Cosign for image signature
         run: |
           curl -O -L "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
@@ -33,14 +37,17 @@ jobs:
       - name: Build | Image push
         run: | 
           docker push ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA
-      - name: Sign Image | Sign Image
+      - name: Sign Image | Cosign Sign Image
         run: |
           export AWS_REGION=${{ secrets.AWS_REGION }}
           cosign generate-key-pair --kms awskms:///alias/${{ secrets.AWS_CMK_ID }}
           cosign sign --key awskms:///alias/${{ secrets.AWS_CMK_ID }} ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA --upload=true --tlog-upload=false
-      - name: Sign Image | Verify Image
+      - name: Sign Image | Cosign Verify Image
         run: |
           cosign verify --key awskms:///alias/${{ secrets.AWS_CMK_ID }} ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA --private-infrastructure
+      - name: Sign Image | Signer Sign Image
+        run: |
+          notation sign ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA --plugin "com.amazonaws.signer.notation.plugin" --id "arn:aws:signer:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:/signing-profiles/vponoiko_test20240115132817707100000001"
   deploy:
     needs: build
     runs-on: self-hosted
