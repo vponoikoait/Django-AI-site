@@ -1,11 +1,11 @@
 MANAGE = python manage.py
-.
+
 VENV = venv
 
 DOCKER_COMPOSE = docker-compose
 
 run:
-	$(MANAGE) runserver
+	$(MANAGE) runserver 0.0.0.0:8000
 
 migrate:
 	$(MANAGE) migrate

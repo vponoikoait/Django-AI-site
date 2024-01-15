@@ -1,3 +1,4 @@
+[![Build & Deploy deploy to production](https://github.com/vponoikoait/Django-AI-site/actions/workflows/build-deploy-workflow.yml/badge.svg)](https://github.com/vponoikoait/Django-AI-site/actions/workflows/build-deploy-workflow.yml)
 # Running the Django-AI-site Project 
 
 ![home_page](home_page.png)

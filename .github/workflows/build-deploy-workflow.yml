@@ -1,0 +1,77 @@
+name: Build & Deploy deploy to production
+
+on:
+  push:
+    branches:
+      - main
+      - k8s-example
+
+env:
+  HELM_RELEASE_NAME: django-ai-site-release
+  HELM_CHART_PATH_LOCALLY: k8s/chart
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install | AWS CLI v2
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip 
+          sudo ./aws/install --update
+      - name: Install | Notation for image signature
+        run: | 
+          wget -q https://d2hvyiie56hcat.cloudfront.net/linux/amd64/installer/deb/latest/aws-signer-notation-cli_amd64.deb
+          sudo dpkg -i aws-signer-notation-cli_amd64.deb
+      - name: Install | Cosign for image signature
+        run: |
+          curl -O -L "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+          sudo mv cosign-linux-amd64 /usr/local/bin/cosign
+          sudo chmod +x /usr/local/bin/cosign
+      - name: Build | Login to ECR
+        run: aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+      - name: Build | Image build
+        run: |
+          docker build --no-cache . -t ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA --platform linux/amd64
+      - name: Build | Image push
+        run: | 
+          docker push ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA
+      - name: Sign Image | Cosign Sign Image
+        run: |
+          export AWS_REGION=${{ secrets.AWS_REGION }}
+          cosign generate-key-pair --kms awskms:///alias/${{ secrets.AWS_CMK_ID }}
+          cosign sign --key awskms:///alias/${{ secrets.AWS_CMK_ID }} ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA --upload=true --tlog-upload=false
+      - name: Sign Image | Cosign Verify Image
+        run: |
+          cosign verify --key awskms:///alias/${{ secrets.AWS_CMK_ID }} ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA --private-infrastructure
+      - name: Sign Image | Signer Sign Image
+        run: |
+          notation sign ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA --plugin "com.amazonaws.signer.notation.plugin" --id "arn:aws:signer:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:/signing-profiles/vponoiko_test20240115132817707100000001"
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install | AWS CLI v2
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install --update
+      - name: Install | kubectl
+        run: |
+          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          sudo wget -q -O /usr/local/bin/kubectl https://dl.k8s.io/release/$KUBECTL_VERSION/bin/linux/amd64/kubectl
+          sudo chmod +x /usr/local/bin/kubectl
+      - name: Install | helm
+        run: |
+          HELM_VERSION=$(curl -Ls https://github.com/helm/helm/releases | grep 'href="/helm/helm/releases/tag/v3.[0-9]*.[0-9]*\"' | sed -E 's/.*\/helm\/helm\/releases\/tag\/(v[0-9\.]+)".*/\1/g' | head -1)
+          sudo wget -q https://get.helm.sh/helm-$HELM_VERSION-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > helm
+          sudo mv helm /usr/local/bin/helm
+          sudo chmod +x /usr/local/bin/helm
+      - name: Deploy | Fetch kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
+      - name: Deploy | Helm upgrade
+        run:
+           helm upgrade $HELM_RELEASE_NAME $HELM_CHART_PATH_LOCALLY/ --namespace ${{ secrets.HELM_RELEASE_NAMESPACE }} -f $HELM_CHART_PATH_LOCALLY/values-example.yaml --set image.tag=$GITHUB_SHA
