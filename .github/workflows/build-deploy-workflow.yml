@@ -74,4 +74,4 @@ jobs:
           aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
       - name: Deploy | Helm upgrade
         run:
-           helm upgrade --install $HELM_RELEASE_NAME $HELM_CHART_PATH_LOCALLY/ --namespace ${{ secrets.HELM_RELEASE_NAMESPACE }} -f $HELM_CHART_PATH_LOCALLY/values-example.yaml --set image.tag=$GITHUB_SHA
+           helm upgrade --install $HELM_RELEASE_NAME $HELM_CHART_PATH_LOCALLY/ --namespace django-ai-website -f $HELM_CHART_PATH_LOCALLY/values-example.yaml --set image.tag=$GITHUB_SHA
