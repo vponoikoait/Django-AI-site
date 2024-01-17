@@ -48,11 +48,9 @@ jobs:
       - name: Sign Image | Signer Sign Image
         run: |
           notation sign ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA --plugin "com.amazonaws.signer.notation.plugin" --id "arn:aws:signer:${{ secrets.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:/signing-profiles/vponoiko_test20240115132817707100000001"
-      - name: Time stop
-        run: | 
-          echo "TIME STOP";
-          notation key list; 
-          sleep 10000
+      - name: Sign Image | Signer Verify Image
+        run: |
+          notation verify ${{ secrets.ECR_REGISTRY_NAME }}:$GITHUB_SHA
 #  deploy:
 #    needs: build
 #    runs-on: self-hosted
