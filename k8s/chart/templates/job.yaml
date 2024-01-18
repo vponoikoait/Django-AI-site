@@ -30,8 +30,8 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["make"]
-          args: ["migrate"]
+          command: ["echo"]
+          args: ["done"]
           envFrom:
             - secretRef:
                 name: {{ .Values.secret.envVars}}
@@ -51,7 +51,7 @@ kind: Job
 metadata:
   name: {{ include "chart.fullname" . }}-{{ .Release.Revision }}-hook
   annotations:
-    "helm.sh/hook": post-install
+    "helm.sh/hook": post-upgrade
     "helm.sh/hook-weight": "-5"
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
